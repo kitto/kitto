@@ -1,175 +1,241 @@
 <script lang="ts">
-	/**
-	 * Overlay – design overlay for pixel-perfect implementation.
-	 *
-	 * **Props:** Pass at least one of `mobile` or `desktop` with the image path. You can append
-	 * an optional design width in pixels using `@`, e.g. `"/mobile.jpg@393"` or `"/desktop.jpg@1920"`.
-	 * The width sets the overlay’s intrinsic size (defaults: mobile 393px, desktop 1920px).
-	 *
-	 * **Keyboard:** 1–9 = opacity 10–90%; 0 = 100%, 00 = 0%. Shift + ↑/↓ = shift overlay;
-	 * add Ctrl for finer steps. Shift + ↑ and ↓ together = reset shift.
-	 */
-	import { SvelteSet } from 'svelte/reactivity'
-	import { storable } from '../storable/index.js'
+	import { onMount } from 'svelte'
+	import Panel from './panel.svelte'
+	import { clampPosition, configure, defaults, restore, select, storageKey } from './model.js'
 
-	/**
-	 * Overlay props. Provide at least one of `mobile` or `desktop`.
-	 */
 	interface Props {
-		/**
-		 * Image path for the mobile overlay (used below 640px). Optional design width in px
-		 * can be appended with `@`, e.g. `"/mobile.jpg@393"`. Default width is 393.
-		 */
+		/** Comma-separated design URLs and intended CSS widths, e.g. "/desktop.jpg 1920w, /mobile.jpg 393w". The nearest width is selected automatically. */
+		srcset?: string
+		/** Legacy mobile image, used below 640px. Supports an @width suffix; defaults to 393px. */
 		mobile?: string
-		/**
-		 * Image path for the desktop overlay (640px and up). Optional design width in px
-		 * can be appended with `@`, e.g. `"/desktop.jpg@1920"`. Default width is 1920.
-		 */
+		/** Legacy desktop image, used from 640px. Supports an @width suffix; defaults to 1920px. srcset takes precedence. */
 		desktop?: string
 	}
 
-	let { mobile, desktop }: Props = $props()
+	let { srcset, mobile, desktop }: Props = $props()
+	const configuration = $derived(configure(srcset, mobile, desktop))
+	let ready = $state(false)
+	let pathname = $state('')
+	let innerWidth = $state(0)
+	let innerHeight = $state(0)
+	let scrollX = $state(0)
+	let scrollY = $state(0)
+	let settings = $state(defaults())
+	let loadedKey = $state('')
+	const key = $derived(storageKey(pathname, configuration))
+	let panelSize = $state({ width: 300, height: 44 })
+	// Fitting the panel on screen must not overwrite where the user placed it.
+	const position = $derived(
+		settings.position
+			? clampPosition(settings.position, { width: innerWidth, height: innerHeight }, panelSize)
+			: null
+	)
+	const active = $derived(select(configuration, innerWidth, settings.selection))
+	const offset = $derived(active ? (settings.offsets[active.width] ?? { x: 0, y: 0 }) : { x: 0, y: 0 })
+	let failedSource = $state('')
+	const error = $derived(
+		!active
+			? configuration.warnings.join(' ')
+			: failedSource === active.src
+				? `Could not load ${active.src}. Check the URL or choose another design.`
+				: ''
+	)
+	// Key bookkeeping never drives rendering or effects.
+	// eslint-disable-next-line svelte/prefer-svelte-reactivity
+	const held = new Set<string>()
+	let lastZero = 0
 
-	// Use whichever is provided; if only one is passed, use it for both breakpoints
-	const effectiveMobile = $derived(mobile ?? desktop)
-	const effectiveDesktop = $derived(desktop ?? mobile)
-	const hasOverlay = $derived(effectiveMobile != null || effectiveDesktop != null)
-
-	const msrc = $derived(effectiveMobile?.split('@')[0] ?? '')
-	const dsrc = $derived(effectiveDesktop?.split('@')[0] ?? '')
-	const msize = $derived(effectiveMobile?.split('@')[1] ?? '393')
-	const dsize = $derived(effectiveDesktop?.split('@')[1] ?? '1920')
+	onMount(() => {
+		const updatePath = () => {
+			pathname = window.location.pathname
+		}
+		updatePath()
+		ready = true
+		// Also catch SPA navigation when this instance survives a route change.
+		const observer = new MutationObserver(updatePath)
+		observer.observe(document.body, { childList: true, subtree: true })
+		return () => observer.disconnect()
+	})
 
 	$effect(() => {
-		if (!hasOverlay) {
-			console.warn(
-				'[Overlay] No overlay image provided. Pass a `mobile` and/or `desktop` prop with the image path(s), e.g. <Overlay mobile="/mobile.jpg" desktop="/desktop.jpg" />'
-			)
+		if (!ready) return
+		const nextKey = key
+		let raw: string | null = null
+		try {
+			raw = localStorage.getItem(nextKey)
+		} catch {
+			/* Storage is optional. */
+		}
+		settings = restore(raw, configuration)
+		loadedKey = nextKey
+		held.clear()
+		lastZero = 0
+		failedSource = ''
+	})
+
+	$effect(() => {
+		if (!ready || loadedKey !== key) return
+		const value = JSON.stringify(settings)
+		try {
+			localStorage.setItem(loadedKey, value)
+		} catch {
+			/* Keep working in memory. */
 		}
 	})
 
-	const overlay = storable({ opacity: '0.0', shift: '0px' }, 'overlay')
-
-	let innerWidth: number = $state(0)
-	let innerHeight: number = $state(0)
-
 	$effect(() => {
-		document.documentElement.dataset.viewport = `${innerWidth} x ${innerHeight}`
+		if (ready) for (const warning of configuration.warnings) console.warn(`[Overlay] ${warning}`)
 	})
 
-	let last_key_pressed: string | null = null
-	let last_key_press_time: number = 0
-	let array_keys = new SvelteSet<string>()
-
-	function keydown({
-		code,
-		shiftKey,
-		ctrlKey,
-		altKey,
-		metaKey
-	}: {
-		code: string
-		shiftKey: boolean
-		ctrlKey: boolean
-		altKey: boolean
-		metaKey: boolean
-	}) {
-		const now: number = Date.now()
-
-		if (shiftKey && altKey && code === 'ArrowUp') {
-			$overlay.shift = '0px'
-			array_keys.clear()
-			return
-		}
-
-		if (shiftKey && (code === 'ArrowDown' || code === 'ArrowUp')) {
-			array_keys.add(code)
-
-			if (array_keys.has('ArrowDown') && array_keys.has('ArrowUp')) {
-				$overlay.shift = '0px'
-				array_keys.clear()
-			} else {
-				const delta: number = code === 'ArrowDown' ? 1 : -1
-				const multiplier: number = ctrlKey ? 1 : 10
-
-				$overlay.shift = (parseInt($overlay.shift) || 0) + delta * multiplier + 'px'
-			}
-		} else {
-			const key: string = code.replace('Digit', '')
-
-			if (isFinite(Number(key))) {
-				if (key === '0' && (ctrlKey || metaKey)) {
-					return
-				}
-				if (key === '0') {
-					$overlay.opacity = last_key_pressed === '0' && now - last_key_press_time < 500 ? '0' : '1'
-				} else {
-					$overlay.opacity = '0.' + key
-				}
-				last_key_pressed = key
-				last_key_press_time = now
-			}
-		}
+	function setOffset(x: number, y: number) {
+		if (active && Number.isFinite(x) && Number.isFinite(y)) settings.offsets[active.width] = { x, y }
 	}
 
-	function keyup({ code }: { code: string }) {
-		array_keys.delete(code)
+	function resetAll() {
+		settings = { ...defaults(), visible: settings.visible }
+		failedSource = ''
+		held.clear()
+		lastZero = 0
+	}
+
+	function keydown(event: KeyboardEvent) {
+		if (!ready || !active || event.defaultPrevented || event.isComposing) return
+		if (
+			event
+				.composedPath()
+				.some(
+					target =>
+						target instanceof HTMLElement &&
+						(target.isContentEditable || target.matches('input, textarea, select, [role="textbox"]'))
+				)
+		)
+			return
+		const { code, shiftKey, ctrlKey, altKey, metaKey } = event
+		if (metaKey) return
+		if (shiftKey && altKey && !ctrlKey && code === 'ArrowUp') {
+			event.preventDefault()
+			setOffset(0, 0)
+			held.clear()
+			return
+		}
+		if (altKey) return
+		if (shiftKey && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(code)) {
+			event.preventDefault()
+			held.add(code)
+			if (held.has('ArrowUp') && held.has('ArrowDown')) {
+				setOffset(0, 0)
+				held.clear()
+			} else {
+				const step = ctrlKey ? 1 : 10
+				setOffset(
+					offset.x + (code === 'ArrowRight' ? step : code === 'ArrowLeft' ? -step : 0),
+					offset.y + (code === 'ArrowDown' ? step : code === 'ArrowUp' ? -step : 0)
+				)
+			}
+			lastZero = 0
+			return
+		}
+		if (ctrlKey || shiftKey || event.repeat) return
+		if (/^Digit[0-9]$/.test(code)) {
+			const digit = Number(code.slice(-1))
+			const now = Date.now()
+			const hide = digit === 0 && lastZero > 0 && now - lastZero < 500
+			settings.visible = !hide
+			if (!hide) settings.opacity = digit === 0 ? 100 : digit * 10
+			lastZero = digit === 0 && !hide ? now : 0
+		} else lastZero = 0
 	}
 
 	function portal(node: HTMLElement) {
-		const target =
-			typeof document !== 'undefined' ? (document.querySelector('body > div') ?? document.body) : null
-		if (target) target.prepend(node)
-		return {
-			destroy() {
-				node.remove()
-			}
-		}
+		document.body.append(node)
+		return { destroy: () => node.remove() }
 	}
 </script>
 
-<svelte:window onkeydown={keydown} onkeyup={keyup} bind:innerHeight bind:innerWidth />
+<svelte:window
+	onpopstate={() => (pathname = window.location.pathname)}
+	onkeydown={keydown}
+	onkeyup={event => held.delete(event.code)}
+	onblur={() => {
+		held.clear()
+		lastZero = 0
+	}}
+	bind:innerWidth
+	bind:innerHeight
+	bind:scrollX
+	bind:scrollY />
 
-{#if hasOverlay && $overlay.opacity !== '0'}
-	<picture class="overlay" style="--mobile:{msize}px; --desktop:{dsize}px" use:portal>
-		<source srcset={dsrc || msrc} media="(min-width: 640px)" />
-		<img
-			class="img"
-			style:opacity={$overlay.opacity}
-			style:margin-top={$overlay.shift}
-			src={msrc || dsrc}
-			alt="Overlay" />
-	</picture>
+{#if ready && loadedKey}
+	{#if active && settings.visible}
+		<div class="overlay" aria-hidden="true" use:portal>
+			{#key active.src}
+				<img
+					class="image"
+					src={active.src}
+					alt=""
+					draggable="false"
+					onerror={() => {
+						failedSource = active.src
+					}}
+					onload={() => {
+						failedSource = ''
+					}}
+					style:width="{active.width}px"
+					style:opacity={settings.opacity / 100}
+					style:translate="calc(-50% + {offset.x - scrollX}px) {offset.y - scrollY}px" />
+			{/key}
+		</div>
+	{/if}
+	<div
+		class="controls"
+		style:left={position ? `${position.x}px` : undefined}
+		style:top={position ? `${position.y}px` : undefined}
+		style:right={position ? 'auto' : undefined}
+		style:bottom={position ? 'auto' : undefined}
+		use:portal
+		bind:offsetWidth={panelSize.width}
+		bind:offsetHeight={panelSize.height}>
+		<Panel
+			bind:settings
+			size={panelSize}
+			sources={configuration.sources}
+			{active}
+			{offset}
+			{innerWidth}
+			{innerHeight}
+			{error}
+			{setOffset}
+			{resetAll} />
+	</div>
 {/if}
 
-<style lang="css">
+<style>
 	.overlay {
-		display: block;
-		height: auto;
-		max-width: 100%;
-		overflow: clip;
+		all: initial;
+		position: fixed;
+		inset: 0;
+		overflow: hidden;
 		pointer-events: none;
+		z-index: 2147483646;
+	}
+
+	.image {
+		all: initial;
+		display: block;
 		position: absolute;
 		top: 0;
-		width: 100%;
-		z-index: 1000;
-	}
-
-	.img {
 		left: 50%;
+		height: auto;
 		max-width: none;
-		opacity: 0;
-		position: relative;
-		transition:
-			opacity 0.3s ease,
-			margin-top 0.3s ease;
-		transform: translateX(-50%);
-		width: var(--mobile, 393px);
+		pointer-events: none;
 	}
 
-	@media (min-width: 640px) {
-		.img {
-			width: var(--desktop, 1920px);
-		}
+	.controls {
+		all: initial;
+		position: fixed;
+		right: max(12px, env(safe-area-inset-right));
+		bottom: max(12px, env(safe-area-inset-bottom));
+		z-index: 2147483647;
+		max-width: calc(100vw - 24px);
 	}
 </style>

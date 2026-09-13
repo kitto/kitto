@@ -136,7 +136,7 @@
 	</div>
 </section>
 
-<Overlay desktop="/desktop.png" />
+<Overlay srcset="/desktop.png 1920w, /tablet.png 1024w, /mobile.png 320w" />
 
 <style lang="css">
 	h1 {
