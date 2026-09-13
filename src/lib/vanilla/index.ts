@@ -27,6 +27,8 @@ export { sleep } from './function/sleep/index.js'
 export { clamp } from './number/clamp/index.js'
 
 // String modules
+export { format_bytes } from './string/format_bytes/index.js'
+export { format_bytes as formatBytes } from './string/format_bytes/index.js'
 export { format_string } from './string/format_string/index.js'
 export { format_string as formatString } from './string/format_string/index.js'
 export { gen_id } from './string/gen_id/index.js'
