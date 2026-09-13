@@ -1,9 +1,11 @@
 /* Imports */
-import { bench } from 'vitest'
-import { find_object } from './index.js'
+import { test } from 'vitest'
+import { find_object as imported_find_object } from './index.js'
 
 /* Setup */
-const arr = () => [
+// Capture the export once to keep Vite module getters out of the timed loop.
+const find_object = imported_find_object
+const arr = [
 	{ testA: 1, testB: 2 },
 	{
 		testA: 3,
@@ -15,12 +17,18 @@ const arr = () => [
 ]
 
 /* Benchmark */
-bench('find_object', () => {
-	find_object(arr(), 'testA', 1)
+test('find_object', async ({ bench }) => {
+	await bench('find_object', () => {
+		find_object(arr, 'testA', 1)
+	}).run()
 })
-bench('find_object recursive', () => {
-	find_object(arr(), 'testC' as never, 4, true)
+test('find_object recursive', async ({ bench }) => {
+	await bench('find_object recursive', () => {
+		find_object(arr, 'testC', 4, true)
+	}).run()
 })
-bench('find_object deep recursive', () => {
-	find_object(arr(), 'testE' as never, 6, true)
+test('find_object deep recursive', async ({ bench }) => {
+	await bench('find_object deep recursive', () => {
+		find_object(arr, 'testE', 6, true)
+	}).run()
 })

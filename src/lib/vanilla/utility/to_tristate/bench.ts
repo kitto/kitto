@@ -1,6 +1,11 @@
 /* Imports */
-import { bench } from 'vitest'
-import { to_tristate } from './index.js'
+import { test } from 'vitest'
+import { to_tristate as imported_to_tristate } from './index.js'
+
+// Capture the export once to keep Vite module getters out of the timed loop.
+const to_tristate = imported_to_tristate
 
 /* Benchmark */
-bench('to_tristate', () => console.log(to_tristate(false)))
+test('to_tristate', async ({ bench }) => {
+	await bench('to_tristate', () => to_tristate(false)).run()
+})

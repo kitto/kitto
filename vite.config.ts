@@ -31,13 +31,13 @@ export default defineConfig({
 				'src/lib/lightningcss/index.ts'
 			]
 		},
-		benchmark: { include: ['src/**/bench.{js,ts}'] },
 		projects: [
 			{
 				extends: './vite.config.ts',
 				plugins: [svelteTesting()],
 				test: {
 					name: 'client',
+					benchmark: { include: ['src/lib/vanilla/dom/**/bench.{js,ts}'] },
 					environment: 'jsdom',
 					clearMocks: true,
 					// test.svelte.ts is compiled by svelte, so those suites can use runes
@@ -54,6 +54,10 @@ export default defineConfig({
 				extends: './vite.config.ts',
 				test: {
 					name: 'server',
+					benchmark: {
+						include: ['src/**/bench.{js,ts}'],
+						exclude: ['src/lib/vanilla/dom/**']
+					},
 					environment: 'node',
 					include: ['src/**/*.{test,spec}.{js,ts}', 'src/**/*/test.{js,ts}'],
 					exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']

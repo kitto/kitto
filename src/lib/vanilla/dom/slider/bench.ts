@@ -1,18 +1,10 @@
 /* Imports */
-import { bench } from 'vitest'
-import { slider } from './index.js'
-import 'global-jsdom/register'
+import { afterAll, expect, test } from 'vitest'
+import { slider as imported_slider } from './index.js'
 
 /* Setup */
-globalThis.ResizeObserver ??= class {
-	observe() {}
-	unobserve() {}
-	disconnect() {}
-} as unknown as typeof ResizeObserver
-
-// Node has its own CustomEvent, which jsdom's dispatchEvent rejects as a foreign Event
-globalThis.CustomEvent = window.CustomEvent
-
+// Capture the export once to keep Vite module getters out of the timed loop.
+const slider = imported_slider
 function build(count: number) {
 	const el = document.createElement('div')
 
@@ -25,21 +17,39 @@ function build(count: number) {
 const small = build(5)
 const large = build(50)
 const looped = build(50)
-const reel = slider(build(50))
+const navigation = build(50)
+
+afterAll(() => {
+	for (const el of [small, large, looped, navigation]) el.remove()
+})
 
 /* Benchmark */
-bench('slider init (5 slides)', () => {
-	slider(small).destroy()
+test('slider init (5 slides)', async ({ bench }) => {
+	await bench('slider init (5 slides)', () => {
+		slider(small).destroy()
+	}).run()
 })
 
-bench('slider init (50 slides)', () => {
-	slider(large).destroy()
+test('slider init (50 slides)', async ({ bench }) => {
+	await bench('slider init (50 slides)', () => {
+		slider(large).destroy()
+	}).run()
 })
 
-bench('slider init (50 slides, looping)', () => {
-	slider(looped, { loop: true, per_page: 3 }).destroy()
+test('slider init (50 slides, looping)', async ({ bench }) => {
+	await bench('slider init (50 slides, looping)', () => {
+		slider(looped, { loop: true, per_page: 3 }).destroy()
+	}).run()
 })
 
-bench('slider next', () => {
+test('slider next', async ({ bench, onTestFinished }) => {
+	const reel = slider(navigation, { duration: 0 })
+	onTestFinished(() => reel.destroy())
 	reel.next()
+	expect(reel.index).toBe(1)
+
+	await bench('slider next', { beforeEach: () => reel.go_to(0) }, () => {
+		reel.next()
+	}).run()
+	expect(reel.index).toBe(1)
 })
