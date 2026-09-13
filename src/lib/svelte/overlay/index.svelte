@@ -18,8 +18,6 @@
 	let pathname = $state('')
 	let innerWidth = $state(0)
 	let innerHeight = $state(0)
-	let scrollX = $state(0)
-	let scrollY = $state(0)
 	let settings = $state(defaults())
 	let loadedKey = $state('')
 	const key = $derived(storageKey(pathname, configuration))
@@ -150,6 +148,45 @@
 		document.body.append(node)
 		return { destroy: () => node.remove() }
 	}
+
+	function documentLayer(node: HTMLElement) {
+		const mounted = portal(node)
+		let frame = 0
+		const measure = () => {
+			// Exclude the layer from the measurement so it cannot hold a shrinking page open.
+			node.style.display = 'none'
+			const root = document.documentElement
+			const width = root.clientWidth
+			const height = Math.max(root.clientHeight, root.scrollHeight)
+			node.style.cssText = 'display: block; left: 0; top: 0; width: 0; height: 0'
+			const origin = node.getBoundingClientRect()
+			// A positioned body may have margins or padding; keep the image at document zero.
+			node.style.left = `${-origin.left - window.scrollX}px`
+			node.style.top = `${-origin.top - window.scrollY}px`
+			node.style.width = `${width}px`
+			node.style.height = `${height}px`
+		}
+		const schedule = () => {
+			cancelAnimationFrame(frame)
+			frame = requestAnimationFrame(measure)
+		}
+		const resize = new ResizeObserver(schedule)
+		resize.observe(document.documentElement)
+		resize.observe(document.body)
+		const mutations = new MutationObserver(records => {
+			if (records.some(record => !node.contains(record.target))) schedule()
+		})
+		mutations.observe(document.body, { childList: true, subtree: true, attributes: true, characterData: true })
+		measure()
+		return {
+			destroy() {
+				cancelAnimationFrame(frame)
+				resize.disconnect()
+				mutations.disconnect()
+				mounted.destroy()
+			}
+		}
+	}
 </script>
 
 <svelte:window
@@ -161,13 +198,11 @@
 		lastZero = 0
 	}}
 	bind:innerWidth
-	bind:innerHeight
-	bind:scrollX
-	bind:scrollY />
+	bind:innerHeight />
 
 {#if ready && loadedKey}
 	{#if active && settings.visible}
-		<div class="overlay" aria-hidden="true" use:portal>
+		<div class="overlay" aria-hidden="true" use:documentLayer>
 			{#key active.src}
 				<img
 					class="image"
@@ -182,7 +217,7 @@
 					}}
 					style:width="{active.width}px"
 					style:opacity={settings.opacity / 100}
-					style:translate="calc(-50% + {offset.x - scrollX}px) {offset.y - scrollY}px" />
+					style:translate="calc(-50% + {offset.x}px) {offset.y}px" />
 			{/key}
 		</div>
 	{/if}
@@ -212,9 +247,12 @@
 <style>
 	.overlay {
 		all: initial;
-		position: fixed;
-		inset: 0;
-		overflow: hidden;
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 0;
+		height: 0;
+		overflow: clip;
 		pointer-events: none;
 		z-index: 2147483646;
 	}
