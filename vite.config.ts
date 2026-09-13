@@ -37,7 +37,12 @@ export default defineConfig({
 				plugins: [svelteTesting()],
 				test: {
 					name: 'client',
-					benchmark: { include: ['src/lib/vanilla/dom/**/bench.{js,ts}'] },
+					benchmark: {
+						include: [
+							'src/lib/vanilla/dom/**/bench.{js,ts}',
+							'src/lib/vanilla/utility/to_base64/bench.{js,ts}'
+						]
+					},
 					environment: 'jsdom',
 					clearMocks: true,
 					// test.svelte.ts is compiled by svelte, so those suites can use runes
@@ -56,7 +61,7 @@ export default defineConfig({
 					name: 'server',
 					benchmark: {
 						include: ['src/**/bench.{js,ts}'],
-						exclude: ['src/lib/vanilla/dom/**']
+						exclude: ['src/lib/vanilla/dom/**', 'src/lib/vanilla/utility/to_base64/**']
 					},
 					environment: 'node',
 					include: ['src/**/*.{test,spec}.{js,ts}', 'src/**/*/test.{js,ts}'],
