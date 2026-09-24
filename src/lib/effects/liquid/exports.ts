@@ -9,8 +9,7 @@ import Item from './item.svelte'
 export const Liquid: typeof Root & { Item: typeof Item } = Object.assign(Root, { Item })
 export { default as LiquidItem } from './item.svelte'
 
-export type { LiquidProps } from './index.svelte'
-export type { LiquidItemProps } from './item.svelte'
+export type { LiquidProps, LiquidItemProps } from './types.js'
 export type { BendTuning, DissolveOptions, LiquidEffect, MorphTuning, MoveTuning } from './tuning.js'
 export { IMAGE_MELT_DEFAULTS } from './image_melt.js'
 export type { ImageMeltOptions } from './image_melt.js'
