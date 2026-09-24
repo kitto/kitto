@@ -76,6 +76,37 @@ including its 640px breakpoint and default widths of 1920/393px. A lone legacy i
 breakpoints. When both APIs are supplied, `srcset` takes precedence. Old global overlay settings are
 not migrated.
 
+### Effects
+
+`kitto/effects` is a Svelte 5 port of Jakub Antalik's [Libraries.dev](https://libraries.dev) (MIT). Prop names,
+presets and defaults match upstream, so configurations copied from the libraries.dev playground drop straight in.
+
+| Component                                 | Upstream        | What it does                                                  |
+| ----------------------------------------- | --------------- | ------------------------------------------------------------- |
+| `BorderBeam`                              | `border-beam`   | A glow that rides the border of a card, button or input       |
+| `ThinkingOrb`                             | `thinking-orbs` | Dotted orbs for loading states in AI interfaces               |
+| `BotAvatar`                               | `bot-avatars`   | Animated bot avatars with living faces                        |
+| `Liquid` / `Liquid.Item`                  | `liquid-gooey`  | Pieces that merge like goo and morph like jelly               |
+| `VoiceBeam`                               | `voice-glow`    | A glow that rises with your voice (`use_microphone` included) |
+| `MetalFx`, `MetalText`, `MetalBadge`      | `metal-fx`      | Liquid metal rings, buttons, text and badges                  |
+| `ImageGeneration` (`kitto/effects/image`) | `img-fx`        | A WebGL pixel mosaic that settles into the image              |
+
+```svelte
+<script>
+	import { BorderBeam } from 'kitto/effects'
+</script>
+
+<BorderBeam>
+	<button>Get started</button>
+</BorderBeam>
+```
+
+React-only details map to Svelte: `className` is `class`, `children` is a snippet, forwarded refs are
+`bind:element`, and hooks are runes functions or attachments. `ImageGeneration` needs `three` (an optional peer
+dependency), so it lives in its own `kitto/effects/image` entry. Each effect has a demo under `/effects/<name>` in
+the dev server. The metal shader is Paper Shaders' `liquidMetal`, vendored unmodified under Apache-2.0; see
+`src/lib/effects/metal/NOTICE.md`.
+
 #### Open to contributions, ideas and feedback, oh plus bugs of course 🤓
 
 [Documentation available here](https://mattpilott.github.io/kitto/)
