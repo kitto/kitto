@@ -3,19 +3,8 @@
 	One piece of a `<Liquid>` group. Mirrors its child's geometry into the
 	group's liquid layer; see `Liquid` for the full docs.
 -->
-<script lang="ts" module>
-	import type { Snippet } from 'svelte'
-	import type { HTMLAttributes } from 'svelte/elements'
-	import type { LiquidItemProps as LiquidItemOptions } from './tuning.js'
-
-	export interface LiquidItemProps
-		extends LiquidItemOptions, Omit<HTMLAttributes<HTMLElement>, keyof LiquidItemOptions | 'children'> {
-		/** The piece's content. Its first element is what the liquid measures. */
-		children?: Snippet
-	}
-</script>
-
 <script lang="ts">
+	import type { LiquidItemProps } from './types.js'
 	import MeltItem from './melt_item.svelte'
 	import MirroredItem from './mirrored_item.svelte'
 	import ObservedItem from './observed_item.svelte'
