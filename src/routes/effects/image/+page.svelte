@@ -6,6 +6,7 @@
 
 	let preset: ImageGenerationPreset = $state('pixels-mechanic')
 	let strength = $state(1)
+	let gap = $state(0.14)
 	let paused = $state(false)
 	let theme: 'dark' | 'light' = $state('dark')
 	let fx: ImageGeneration | undefined = $state()
@@ -44,6 +45,10 @@
 			Strength {Math.round(strength * 100)}%
 			<input type="range" min="0" max="1" step="0.01" bind:value={strength} />
 		</label>
+		<label>
+			Gap {gap.toFixed(2)}
+			<input type="range" min="0" max="1" step="0.01" bind:value={gap} />
+		</label>
 		<button onclick={() => (paused = !paused)}>{paused ? 'Play' : 'Pause'}</button>
 		<button
 			onclick={() => {
@@ -57,6 +62,7 @@
 		{preset}
 		{theme}
 		{strength}
+		{gap}
 		{paused}
 		{images}
 		onCycle={() => (active = fx?.isImageActive() ?? false)}>

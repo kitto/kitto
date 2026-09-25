@@ -12,6 +12,7 @@ export {
 	setFrameRate,
 	setInstanceCardBg,
 	setInstanceColors,
+	setInstanceGap,
 	setInstancePaused,
 	setInstancePixelScale,
 	setInstancePreset,

@@ -43,6 +43,7 @@ Imported from its own entry point, `kitto/effects/image`, since it depends on `t
 		samplePaletteFromCanvas,
 		setInstanceCardBg,
 		setInstanceColors,
+		setInstanceGap,
 		setInstancePaused,
 		setInstancePixelScale,
 		setInstancePreset,
@@ -72,6 +73,7 @@ Imported from its own entry point, `kitto/effects/image`, since it depends on `t
 		strength = 1,
 		speed = 1,
 		pixelScale = 1,
+		gap,
 		cardBg: cardBgProp,
 		colors,
 		images,
@@ -253,7 +255,8 @@ Imported from its own entry point, `kitto/effects/image`, since it depends on `t
 					strength,
 					speed,
 					cardBg: cardBgProp ?? null,
-					pixelScale
+					pixelScale,
+					gap
 				})
 			} catch {
 				return
@@ -397,6 +400,12 @@ Imported from its own entry point, `kitto/effects/image`, since it depends on `t
 	$effect(() => {
 		if (!engine) return
 		setInstancePixelScale(engine.inst, pixelScale)
+		renderInstanceOnce(engine.inst)
+	})
+
+	$effect(() => {
+		if (!engine) return
+		setInstanceGap(engine.inst, gap ?? null)
 		renderInstanceOnce(engine.inst)
 	})
 

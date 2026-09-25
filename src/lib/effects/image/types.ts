@@ -146,6 +146,13 @@ export interface ImageGenerationProps extends Omit<HTMLAttributes<HTMLDivElement
 	pixelScale?: number
 
 	/**
+	 * Space between mosaic cells as a fraction of a cell (0..1). Overrides the
+	 * preset's gap of `0.14`; `0` removes it. Highlighted cells render a smaller
+	 * gap. Omit to use the preset's value.
+	 */
+	gap?: number
+
+	/**
 	 * Card background colour. Accepts any CSS colour string the browser can
 	 * parse and is applied two ways: verbatim as the wrapper element's CSS
 	 * `background`, and parsed to an opaque RGB triple for the shader's

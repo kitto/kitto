@@ -121,6 +121,8 @@ export interface Instance {
 	 *  Applied by dividing the shader grid's base cell count so both the shader
 	 *  mosaic and the reveal dissolve share the same scaled grid. */
 	pixelScale: number
+	/** Optional per-instance spacing override; null uses the active preset. */
+	gap: number | null
 	/** True when in viewport. */
 	visible: boolean
 	/** True when the user has paused this instance. */
@@ -352,7 +354,7 @@ function uploadInstanceUniforms(s: SharedRenderer, inst: Instance): void {
 
 	const mosaic = p.dotMode === 1 ? p.pixelConfig : p.dotConfig
 	u.u_cellSize.value = effectiveCellSize(mosaic.cellSize, inst.pixelScale)
-	u.u_gap.value = mosaic.gap
+	u.u_gap.value = inst.gap ?? mosaic.gap
 	u.u_dotSize.value = mosaic.dotSize
 	u.u_dotSoftness.value = mosaic.dotSoftness
 	u.u_dotOpacity.value = mosaic.dotOpacity
@@ -646,6 +648,8 @@ export interface CreateInstanceOptions {
 	cardBg?: string | null
 	/** Pixel-cell size multiplier (see `Instance.pixelScale`). @default 1 */
 	pixelScale?: number
+	/** Per-cell spacing override (0..1); omit to use the preset. */
+	gap?: number
 }
 
 /**
@@ -685,6 +689,7 @@ export function createInstance(opts: CreateInstanceOptions): Instance {
 		strength: Math.max(0, Math.min(2, opts.strength ?? 1)),
 		speedMul: opts.speed != null && opts.speed > 0 ? opts.speed : 1,
 		pixelScale: opts.pixelScale != null && opts.pixelScale > 0 ? opts.pixelScale : 1,
+		gap: opts.gap == null ? null : Math.max(0, Math.min(1, opts.gap)),
 		visible: true,
 		paused: false,
 		uniformsDirty: true,
@@ -762,6 +767,11 @@ export function setInstancePixelScale(inst: Instance, pixelScale: number): void 
 	inst.pixelScale = pixelScale > 0 ? pixelScale : 1
 	// Cell count is derived from pixelScale at uniform-upload time, so a change
 	// must invalidate the cached uniform block.
+	inst.uniformsDirty = true
+}
+
+export function setInstanceGap(inst: Instance, gap: number | null): void {
+	inst.gap = gap === null ? null : Math.max(0, Math.min(1, gap))
 	inst.uniformsDirty = true
 }
 
